@@ -1,0 +1,1605 @@
+/* ============================================================
+   AUTOMATA SIMULATOR — NindtenDON'T Edition
+   Retro Console UI  •  Intel One Mono
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Intel+One+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');
+
+/* ---- Palette ---- */
+:root {
+    --black: #000000;
+    --cream: #F6EDC3;
+    --light-gray: #F5F5F5;
+    --white: #FFFFFF;
+    --slate: #3E4A56;
+    --warm-gray: #A9A2A2;
+    --teal: #73B5A8;
+    --orange: #DD7650;
+    --dark-navy: #293646;
+    --mint: #ACD1B4;
+    --red: #CB282D;
+
+    --teal-light: #8fd0c6;
+    --orange-dark: #b85c35;
+    --cream-dark: #e8d99a;
+
+    --font: 'Intel One Mono', 'Courier New', monospace;
+
+    --accept-green: #34d399;
+    --reject-red: #ef4444;
+
+    --btn-depth: 5px;
+    --cartridge-speed: 420ms;
+}
+
+/* ---- Reset ---- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    height: 100vh;
+    font-family: var(--font);
+    background-color: var(--slate);
+    color: var(--black);
+    overflow: hidden;
+}
+
+/* ============================================================
+   MAIN 2-COLUMN LAYOUT
+   ============================================================ */
+.main-workspace {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.left-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 12px 18px 22px;
+    gap: 12px;
+    min-width: 0;
+}
+
+.right-column {
+    width: 310px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 14px 14px 10px;
+    gap: 0;
+}
+
+/* ============================================================
+   REGEX DISPLAY BAR — Two overlapping rounded boxes
+   Cream (#F6EDC3) on top of Orange (#DD7650), both fully rounded
+   ============================================================ */
+.regex-display-bar {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    height: 38px;
+}
+
+.regex-badge {
+    background-color: var(--orange);
+    color: var(--white);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 0 28px 0 16px;
+    /* extra right padding for overlap */
+    border-radius: 8px;
+    /* all corners rounded */
+    position: relative;
+    z-index: 1;
+    /* behind the cream box */
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.regex-display-text {
+    flex: 1;
+    background-color: var(--cream);
+    color: var(--black);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0 14px;
+    border-radius: 8px;
+    /* all corners rounded */
+    position: relative;
+    z-index: 2;
+    /* cream box ON TOP of orange */
+    margin-left: -14px;
+    /* overlap the orange box */
+    display: flex;
+    align-items: center;
+}
+
+/* ============================================================
+   TV BEZEL — flat teal
+   ============================================================ */
+.tv-bezel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--teal);
+    border-radius: 12px;
+    padding: 14px;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.tv-inner-border {
+    flex: 1;
+    border: 3px solid var(--teal-light);
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.tv-screen {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: var(--slate);
+    transition: background-color 0.4s ease;
+}
+
+.tv-screen.tv-on {
+    background-color: var(--white);
+}
+
+/* CRT static canvas */
+.tv-static-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20;
+    display: none;
+    image-rendering: pixelated;
+    border-radius: 3px;
+}
+
+/* Graph */
+#automata-network {
+    width: 100%;
+    height: 100%;
+    outline: none;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    /* Drop the black opacity from 0.9 to 0.4, and the teal from 0.2 to 0.05 */
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.4), 0 0 10px rgba(115, 181, 168, 0.05);
+}
+
+/* Floating status boxes */
+.floating-displays {
+    position: absolute;
+    top: 10px;
+    left: 15px;
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.status-box {
+    display: flex;
+    align-items: stretch;
+    height: 34px;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.status-box.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+}
+
+.box-label {
+    background-color: var(--orange);
+    color: var(--white);
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.box-content {
+    background-color: var(--cream);
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   CURRENT STATE BAR — Overlapping Rounded Boxes (Cream/White on Orange)
+   ============================================================ */
+.current-state-bar {
+    display: flex;
+    align-items: stretch;
+    height: 38px;
+    background: transparent;
+    border-radius: 0;
+    overflow: visible;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.current-state-bar.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+}
+
+.current-state-bar .box-label {
+    background-color: #DD7650;
+    color: var(--white);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 0 28px 0 16px;
+    border-radius: 8px;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    border: 2px solid #DD7650;
+}
+
+.current-state-bar .box-content {
+    background-color: #FFFFFA;
+    color: var(--black);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0 16px;
+    border-radius: 8px;
+    position: relative;
+    z-index: 2;
+    margin-left: -14px;
+    display: flex;
+    align-items: center;
+    border: 2px solid #DD7650;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================================
+   SIMULATION NOTIFICATION PILL BOX
+   ============================================================ */
+.sim-notif-box {
+    display: flex;
+    align-items: center;
+    height: 38px;
+    border-radius: 8px;
+    padding: 0 16px;
+    font-family: var(--font);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.sim-notif-box.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+}
+
+.sim-notif-box.accepted {
+    color: #059669;
+    background-color: #d1fae5;
+    /* border: 2px solid #34d399; */
+}
+
+.sim-notif-box.rejected {
+    color: var(--red);
+    background-color: #fee2e2;
+    /* border: 2px solid var(--red); */
+}
+
+/* ============================================================
+   TV BOTTOM DECOR — [5 lines] [logo] [5 lines]
+   Logo sits BETWEEN two groups of stripes, horizontally
+   ============================================================ */
+.tv-bottom-decor {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: 8px;
+    min-height: 36px;
+    margin-left: -14px;
+    margin-right: -14px;
+}
+
+.decor-stripes-group.full-width-stripes {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 1;
+}
+
+.stripe {
+    height: 2px;
+    background-color: var(--cream);
+    border-radius: 1px;
+}
+
+.console-brand-label {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    background-color: var(--cream);
+    color: var(--black);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 8px 36px;
+    border-radius: 18px;
+}
+
+/* ============================================================
+   CARTRIDGE AREA
+   ============================================================ */
+.cartridge-area {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-bottom: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.cartridge-wrapper {
+    flex: 1;
+    height: 190px;
+    position: relative;
+}
+
+/* ---- Cartridge Base ---- */
+.cartridge {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    border-radius: 12px;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    transition:
+        top var(--cartridge-speed) cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow var(--cartridge-speed) ease;
+    z-index: 2;
+    overflow: hidden;
+}
+
+.cartridge.cartridge-orange {
+    background-color: var(--orange);
+    box-shadow: 0 4px 0 var(--orange-dark), 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cartridge.cartridge-mint {
+    background-color: var(--mint);
+    box-shadow: 0 4px 0 #7aad89, 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- Cartridge Top: [5 lines] [REGEX #] [5 lines] ---- */
+.cartridge-top {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 8px 6px;
+    min-height: 38px;
+}
+
+.cartridge-stripes-group.full-width-stripes {
+    position: absolute;
+    left: -4px;
+    right: -4px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 1;
+}
+
+.cart-stripe {
+    height: 2px;
+    background-color: var(--cream);
+    border-radius: 1px;
+}
+
+/* Pill label centered between the two stripe groups */
+.cartridge-label {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    background-color: var(--cream);
+    color: var(--black);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-align: center;
+    padding: 6px 14px;
+    border-radius: 18px;
+}
+
+/* ---- Cartridge Body (photo area) ---- */
+.cartridge-body {
+    background-color: var(--white);
+    flex: 1;
+    margin: 0 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 90px;
+    overflow: hidden;
+}
+
+.cartridge-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cartridge-photo-placeholder {
+    font-size: 11px;
+    color: var(--warm-gray);
+    user-select: none;
+}
+
+/* ---- Cartridge Notch ---- */
+.cartridge-notch {
+    text-align: center;
+    padding: 4px 0 2px;
+    font-size: 14px;
+    color: var(--cream);
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+/* Hover lift */
+.cartridge:not(.inserted):hover {
+    top: -5px;
+}
+
+.cartridge.cartridge-orange:not(.inserted):hover {
+    box-shadow: 0 9px 0 var(--orange-dark), 0 12px 20px rgba(0, 0, 0, 0.35);
+}
+
+.cartridge.cartridge-mint:not(.inserted):hover {
+    box-shadow: 0 9px 0 #7aad89, 0 12px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Inserted state */
+.cartridge.inserted {
+    top: 150px;
+}
+
+.cartridge.cartridge-orange.inserted {
+    box-shadow: 0 1px 0 var(--orange-dark), 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.cartridge.cartridge-mint.inserted {
+    box-shadow: 0 1px 0 #7aad89, 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+
+
+/* ============================================================
+   SIDEBAR PANEL — matches .md layout
+   ╭──────────────────────────────╮
+   │  └─────────────────────────┘ │  slot (equal side gaps)
+   │                              │
+   │  ─────────────────────────── │  divider (equal side gaps)
+   │                              │
+   │            content           │
+   │                              │
+   ╞══════════════════════════════╡  3 lines (full width)
+   ╰──────────────────────────────╯
+   ============================================================ */
+.sidebar-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--cream);
+    /* border: 3px solid var(--dark-navy); */
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    z-index: 5;
+    min-height: 0;
+}
+
+/* ---- └─────┘ slot at top (equal side gaps) ---- */
+.panel-slot-area {
+    padding: 0 16px 0;
+    flex-shrink: 0;
+}
+
+.panel-top-slot {
+    height: 14px;
+    border: 2px solid var(--teal);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+/* ---- Menu sections ---- */
+.menu-section {
+    padding: 16px 16px;
+    flex-shrink: 0;
+}
+
+.menu-section h3 {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-bottom: 14px;
+    opacity: 0.7;
+}
+
+.button-grid {
+    display: flex;
+    gap: 10px;
+}
+
+.button-grid.triple .btn {
+    flex: 1;
+}
+
+/* ---- ─────── divider (equal side gaps) ---- */
+.panel-divider {
+    height: 2px;
+    background-color: var(--teal);
+    margin: 10px 16px 8px 16px;
+    flex-shrink: 0;
+}
+
+/* ---- ╞═══╡ 3 full-width bottom stripes ---- */
+.panel-bottom-stripes {
+    margin-top: auto;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 0 6px;
+    flex-shrink: 0;
+}
+
+.panel-stripe {
+    height: 2px;
+    background-color: var(--teal);
+}
+
+/* ============================================================
+   BUTTONS — Base
+   ============================================================ */
+.btn {
+    border: none;
+    border-radius: 30px;
+    padding: 12px 16px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    color: var(--white);
+    user-select: none;
+    transition:
+        transform 0.08s ease,
+        box-shadow 0.08s ease;
+}
+
+/* ============================================================
+   MODEL BUTTONS — 3D Push-Down
+   ============================================================ */
+.model-btn {
+    transform: translateY(0);
+}
+
+/* DFA — Red */
+.model-dfa {
+    background-color: var(--red);
+    box-shadow: 0 var(--btn-depth) 0 #8a1a1e, 0 7px 12px rgba(203, 40, 45, 0.3);
+}
+
+.model-dfa.active,
+.model-dfa:active {
+    background-color: #b82227;
+    transform: translateY(var(--btn-depth));
+    box-shadow: 0 0 0 #8a1a1e, 0 2px 4px rgba(203, 40, 45, 0.15);
+}
+
+/* CFG — Gold */
+.model-cfg {
+    background-color: #D4A030;
+    box-shadow: 0 var(--btn-depth) 0 #9a7020, 0 7px 12px rgba(212, 160, 48, 0.3);
+}
+
+.model-cfg.active,
+.model-cfg:active {
+    background-color: #b88a28;
+    transform: translateY(var(--btn-depth));
+    box-shadow: 0 0 0 #9a7020, 0 2px 4px rgba(212, 160, 48, 0.15);
+}
+
+/* PDA — Dark Slate */
+.model-pda {
+    background-color: var(--dark-navy);
+    box-shadow: 0 var(--btn-depth) 0 #131d27, 0 7px 12px rgba(41, 54, 70, 0.4);
+}
+
+.model-pda.active,
+.model-pda:active {
+    background-color: #1e2d3d;
+    transform: translateY(var(--btn-depth));
+    box-shadow: 0 0 0 #131d27, 0 2px 4px rgba(41, 54, 70, 0.2);
+}
+
+/* ============================================================
+   VALIDATE / ADD MORE BUTTONS
+   ============================================================ */
+.validate-btn {
+    background-color: var(--orange);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 4px 0 var(--orange-dark), 0 6px 10px rgba(221, 118, 80, 0.25);
+    transform: translateY(0);
+    margin-bottom: 5px;
+}
+
+.validate-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 var(--orange-dark), 0 2px 4px rgba(221, 118, 80, 0.15);
+}
+
+.validate-btn.accepted {
+    background-color: #10B981;
+    box-shadow: 0 4px 0 #059669, 0 6px 10px rgba(16, 185, 129, 0.25);
+}
+
+.validate-btn.accepted:active {
+    box-shadow: 0 0 0 #059669, 0 2px 4px rgba(16, 185, 129, 0.15);
+}
+
+.validate-btn.rejected {
+    background-color: #EF4444;
+    box-shadow: 0 4px 0 #DC2626, 0 6px 10px rgba(239, 68, 68, 0.25);
+}
+
+.validate-btn.rejected:active {
+    box-shadow: 0 0 0 #DC2626, 0 2px 4px rgba(239, 68, 68, 0.15);
+}
+
+.add-more-btn {
+    background-color: var(--orange);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 11px;
+    align-self: flex-start;
+    box-shadow: 0 4px 0 var(--orange-dark), 0 6px 10px rgba(221, 118, 80, 0.25);
+    transform: translateY(0);
+}
+
+.add-more-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 var(--orange-dark), 0 2px 4px rgba(221, 118, 80, 0.15);
+}
+
+.add-more-btn.hidden {
+    display: none !important;
+}
+
+/* ============================================================
+   SIMULATION INPUTS — bottom-aligned
+   ============================================================ */
+#simulation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    /* bottom-aligned */
+}
+
+.input-wrapper {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--white);
+    border: 2px solid var(--cream-dark);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+    height: 36px;
+}
+
+.input-wrapper:focus-within {
+    border-color: var(--teal);
+}
+
+.string-input {
+    width: 100%;
+    padding: 0 12px;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 13px;
+    outline: none;
+    background: transparent;
+    color: var(--black);
+    transition: padding-left 0.2s ease;
+}
+
+.string-input::placeholder {
+    color: var(--warm-gray);
+    font-style: italic;
+}
+
+.status-text {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 11px;
+    font-weight: bold;
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.status-text.accepted {
+    color: #ffffff;
+    background-color: #10B981;
+    border: 1.5px solid #059669;
+}
+
+.status-text.rejected {
+    color: #ffffff;
+    background-color: #EF4444;
+    border: 1.5px solid #DC2626;
+}
+
+/* Hover-to-Delete */
+.delete-btn {
+    position: absolute;
+    left: 8px;
+    background: none;
+    border: none;
+    color: var(--warm-gray);
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.delete-btn:hover {
+    color: var(--red);
+}
+
+.input-wrapper:hover .delete-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.input-wrapper:hover .string-input {
+    padding-left: 28px;
+}
+
+.simulation-section {
+    flex: 1;
+}
+
+/* ============================================================
+   TV SCREEN TITLE SCREEN
+   ============================================================ */
+.tv-title-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 32, 44, 0.85);
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.9), 0 0 10px rgba(115, 181, 168, 0.2);
+    z-index: 10;
+    padding: 16px;
+    box-sizing: border-box;
+    font-family: var(--font);
+    user-select: none;
+    transition: opacity 0.3s ease;
+}
+
+.tv-title-screen.hidden {
+    display: none !important;
+}
+
+.title-screen-welcome {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--orange);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.title-logo-fallback {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: var(--teal);
+    border: 3px solid var(--dark-navy);
+    border-radius: 20px;
+    padding: 6px 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+.logo-dpad {
+    color: var(--orange);
+    font-size: 16px;
+    line-height: 1;
+}
+
+.logo-text {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--black);
+    letter-spacing: 0.02em;
+}
+
+.logo-btn {
+    color: var(--red);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.title-logo-img {
+    max-width: 80%;
+    max-height: 45px;
+    margin-bottom: 18px;
+    object-fit: contain;
+}
+
+.title-card {
+    background-color: var(--orange);
+    border-radius: 12px;
+    width: 85%;
+    height: auto;
+    max-width: 660px;
+    max-height: 360px;
+    padding: 20px 16px 34px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--white);
+    text-align: center;
+    box-shadow: 0 6px 0 var(--orange-dark);
+}
+
+.title-card-regex {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-top: 50px;
+    margin-bottom: 6px;
+    color: var(--mint);
+}
+
+.title-card-alphabet {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 48px;
+    color: var(--white);
+    letter-spacing: 0.02em;
+}
+
+.title-card-select-model {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    color: var(--white);
+}
+
+.title-card-simulate {
+    font-size: 18px;
+    font-weight: 500;
+    opacity: 0.85;
+    color: var(--white);
+}
+
+/* Blinking Effect */
+.blinking {
+    animation: blink-animation 1s steps(2, start) infinite;
+}
+
+@keyframes blink-animation {
+    to {
+        visibility: hidden;
+    }
+}
+
+/* Disabled States for Simulation Controls */
+.validate-btn:disabled,
+.add-more-btn:disabled {
+    background-color: var(--warm-gray) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    opacity: 0.6;
+}
+
+/* Recenter Button on TV Screen */
+.recenter-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 25;
+    /* above vis.js canvas */
+    background-color: var(--cream);
+    color: var(--black);
+    border: 2px solid var(--dark-navy);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: var(--font);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--dark-navy);
+    transform: translateY(0);
+    transition: opacity 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.recenter-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--dark-navy);
+}
+
+.recenter-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: none !important;
+}
+
+/* Tracking Toggle Button on TV Screen */
+.tracking-toggle-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 25;
+    background-color: var(--teal);
+    color: var(--white);
+    border: 2px solid var(--dark-navy);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: var(--font);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--dark-navy);
+    transform: translateY(0);
+    transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.tracking-toggle-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--dark-navy);
+}
+
+.tracking-toggle-btn.off {
+    background-color: var(--orange);
+    color: var(--white);
+}
+
+.tracking-toggle-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: none !important;
+}
+
+/* Disabled States for Input Fields */
+.string-input:disabled {
+    cursor: not-allowed !important;
+    background-color: transparent !important;
+    color: var(--warm-gray) !important;
+}
+
+.input-wrapper:has(.string-input:disabled) {
+    background-color: var(--light-gray) !important;
+    border-color: var(--warm-gray) !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* ============================================================
+   CONSOLES BOOT / START SCREEN
+   ============================================================ */
+
+.start-console-btn {
+    margin-top: 64px;
+    background-color: transparent;
+    color: var(--teal);
+    font-family: var(--font);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border: none;
+    cursor: pointer;
+
+    /* Hide smoothly instead of using display: none */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: opacity 0.6s ease, transform 0.6s ease, color 0.2s ease;
+}
+
+.start-console-btn.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    animation: text-blink 1.5s steps(2, start) infinite;
+    animation-delay: 0.5s;
+    /* Wait a half second before blinking */
+}
+
+.start-console-btn:hover {
+    color: var(--orange);
+    animation: none;
+    /* Stop blinking on hover */
+}
+
+.start-console-btn.hidden {
+    display: none !important;
+}
+
+.console-boot-screen {
+    position: fixed;
+    inset: 0;
+    background-color: var(--slate);
+    z-index: 100;
+    /* above everything */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+    transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1), transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center center;
+}
+
+.console-boot-screen.fade-out {
+    opacity: 0;
+    transform: scale(1.4);
+    pointer-events: none;
+}
+
+.boot-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+}
+
+.boot-subtext {
+    font-family: var(--font);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--orange);
+    text-transform: lowercase;
+    min-height: 24px;
+    /* prevent layout shift */
+    display: flex;
+    align-items: center;
+}
+
+.boot-logo-img {
+    opacity: 0;
+    transform: translateY(15px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.boot-logo-img.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Typing Cursor */
+.boot-subtext::after {
+    content: '|';
+    animation: cursor-blink 0.8s steps(2, start) infinite;
+    margin-left: 2px;
+    color: var(--orange);
+}
+
+.boot-subtext.typing-done::after {
+    display: none;
+}
+
+@keyframes cursor-blink {
+    to {
+        visibility: hidden;
+    }
+}
+
+@keyframes text-blink {
+
+    0%,
+    49% {
+        color: var(--teal);
+    }
+
+    50%,
+    100% {
+        color: transparent;
+    }
+}
+
+.boot-power-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.power-text {
+    font-family: var(--font);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    animation: text-blink 1s steps(2, start) infinite;
+    text-shadow: 0 0 10px rgba(115, 181, 168, 0.4);
+}
+
+/* ============================================================
+   CFG RETRO SCREEN STYLING
+   ============================================================ */
+#cfg-display {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 0;
+    font-family: 'Intel One Mono', monospace;
+    color: #fff;
+    z-index: 2;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#cfg-display.hidden {
+    display: none !important;
+}
+
+.cfg-container {
+    background: rgba(26, 32, 44, 0.85);
+    border: 2px solid #424f5a;
+    padding: 32px 150px;
+    border-radius: 0;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.9), 0 0 10px rgba(115, 181, 168, 0.2);
+}
+
+.cfg-header {
+    font-size: 20px;
+    font-weight: 700;
+    color: #73B5A8;
+    text-align: center;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+    border-bottom: 2px dashed #424f5a;
+    padding-bottom: 6px;
+}
+
+.cfg-tuple {
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 8px;
+    text-align: center;
+    font-size: 13px;
+}
+
+.cfg-row {
+    font-size: 17px;
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.cfg-var {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.cfg-divider {
+    color: #424f5a;
+    margin: 8px 0;
+    text-align: center;
+    font-size: 17px;
+}
+
+.cfg-rules-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #73B5A8;
+    margin-bottom: 6px;
+}
+
+.cfg-rules-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 18px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(66, 79, 90, 0.5);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.cfg-rule {
+    display: grid;
+    grid-template-columns: 25px 20px 1fr;
+    align-items: center;
+}
+
+.cfg-rule span:first-child {
+    color: #f43f5e;
+    font-weight: bold;
+}
+
+.cfg-rule span:nth-child(2) {
+    color: #94a3b8;
+}
+
+.cfg-rule span:last-child {
+    color: #e2e8f0;
+}
+
+.cfg-rule.cfg-highlight {
+    background-color: rgba(115, 181, 168, 0.25);
+    border-radius: 4px;
+    box-shadow: 0 0 8px rgba(115, 181, 168, 0.4);
+}
+
+.cfg-rule.cfg-highlight span:first-child,
+.cfg-rule.cfg-highlight span:last-child {
+    color: #34d399;
+    text-shadow: 0 0 5px rgba(52, 211, 153, 0.6);
+}
+
+.cfg-status-wrapper {
+    margin-top: 18px;
+    display: flex;
+    justify-content: left;
+    align-items: left;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    min-height: 24px;
+    letter-spacing: 1px;
+}
+
+.cfg-status-label {
+    color: #94a3b8;
+}
+
+.cfg-status-text {
+    margin-top: 0;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.cfg-status-text.accepted {
+    color: #34d399;
+    text-shadow: 0 0 6px rgba(52, 211, 153, 0.4);
+}
+
+.cfg-status-text.rejected {
+    color: #ef4444;
+    text-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.cfg-status-text::after {
+    content: '|';
+    animation: cursor-blink 0.8s steps(2, start) infinite;
+    margin-left: 2px;
+}
+
+.cfg-status-text.typing-done::after {
+    display: none;
+}
+
+/* ============================================================
+   PDA RETRO PANEL STYLING
+   ============================================================ */
+#pda-display {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 10;
+    pointer-events: none;
+    /* Allows interacting with the vis.js graph behind it */
+}
+
+#pda-display.hidden {
+    display: none !important;
+}
+
+.pda-info-box {
+    background: rgba(26, 32, 44, 0.9);
+    border: 2px solid #DD7650;
+    /* Orange theme color accent */
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: 'Intel One Mono', monospace;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    max-width: 280px;
+}
+
+.pda-header {
+    font-size: 11px;
+    font-weight: bold;
+    color: #DD7650;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+
+.pda-tuple {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+    font-style: italic;
+}
+
+.pda-details {
+    font-size: 10px;
+    color: #e2e8f0;
+    line-height: 1.4;
+    border-top: 1px dashed rgba(221, 118, 80, 0.3);
+    padding-top: 4px;
+}
+
+.pda-meta {
+    color: #a9a2a2;
+}
+
+/* ============================================================
+   GAME MANUAL MODAL
+   ============================================================ */
+.manual-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background-color: var(--teal);
+    color: var(--white);
+    font-family: var(--font);
+    font-size: 24px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    z-index: 50;
+    box-shadow: 0 4px 0 var(--dark-navy), 0 6px 12px rgba(0, 0, 0, 0.4);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.manual-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 var(--dark-navy);
+}
+
+/* Modal Overlay */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    /* Must be above everything */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.hidden {
+    display: none !important;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(41, 54, 70, 0.85);
+    /* Dark Navy transparent */
+    backdrop-filter: blur(4px);
+}
+
+/* Modal Content Box */
+.modal-content {
+    position: relative;
+    background-color: var(--cream);
+    width: 90%;
+    max-width: 550px;
+    border: 4px solid var(--orange);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modal-pop {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    background-color: var(--orange);
+    color: var(--white);
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 16px;
+    letter-spacing: 0.1em;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--white);
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.close-btn:hover {
+    transform: scale(1.2);
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 100vh;
+    overflow-y: auto;
+    font-size: 13px;
+    color: var(--slate);
+    line-height: 1.5;
+}
+
+.manual-section {
+    margin-bottom: 18px;
+}
+
+.manual-section h3 {
+    color: var(--dark-navy);
+    font-size: 14px;
+    margin-bottom: 6px;
+    border-bottom: 2px solid var(--mint);
+    padding-bottom: 4px;
+}
+
+.manual-section ul {
+    margin-left: 20px;
+    margin-top: 6px;
+}
+
+.highlight-dfa {
+    color: var(--red);
+    font-weight: bold;
+}
+
+.highlight-cfg {
+    color: #D4A030;
+    font-weight: bold;
+}
+
+.highlight-pda {
+    color: var(--dark-navy);
+    font-weight: bold;
+}
+
+.modal-footer {
+    padding: 12px;
+    position: relative;
+    min-height: 30px;
+}
+
+/* ============================================================
+   TV STATIC TRANSITION OVERLAY
+   ============================================================ */
+.static-overlay {
+    position: absolute;
+    inset: 0;
+    /* Covers the entire parent container */
+    z-index: 100;
+    pointer-events: none;
+    background-color: #111;
+    /* Procedural SVG Noise */
+    background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noise)" opacity="0.6"/%3E%3C/svg%3E');
+    animation: static-flicker 0.1s steps(3) infinite;
+}
+
+.static-overlay.hidden {
+    display: none !important;
+}
+
+@keyframes static-flicker {
+    0% {
+        background-position: 0 0;
+        opacity: 0.9;
+    }
+
+    50% {
+        background-position: 100% 50%;
+        opacity: 1;
+    }
+
+    100% {
+        background-position: 0 100%;
+        opacity: 0.85;
+    }
+}
