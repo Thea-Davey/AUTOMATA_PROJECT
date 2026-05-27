@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automata Simulator — NindtenDON'T</title>
+    <meta name="description"
+        content="An interactive automata simulator with DFA, CFG, and PDA models styled as a retro gaming console.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Intel+One+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link rel="icon" type="image/png" href="logo2.png">
+</head>
+
+<body>
+
+    <!-- Fullscreen Console Boot Loading Page -->
+    <div class="console-boot-screen" id="console-boot-screen">
+        <div class="boot-power-screen" id="boot-power-screen" onclick="powerOnConsole()">
+            <span class="power-text">[ CLICK SCREEN TO POWER ON ]</span>
+        </div>
+        <div class="boot-content" id="boot-content" style="display: none;">
+            <div class="boot-subtext" id="boot-subtext"></div>
+            <img src="title_logo.png" alt="nintenDON'T" class="boot-logo-img">
+
+            <button id="btn-start-console" class="start-console-btn">- PRESS START -</button>
+        </div>
+    </div>
+
+    <div class="main-workspace">
+
+        <!-- ============== LEFT COLUMN ============== -->
+        <div class="left-column">
+
+            <div class="regex-display-bar">
+                <span class="regex-badge">REGEX</span>
+                <span class="regex-display-text" id="regex-display-text">Select a regex</span>
+            </div>
+
+            <div class="tv-bezel">
+                <div class="tv-inner-border">
+                    <div class="tv-screen" id="tv-screen">
+
+                        <div class="floating-displays">
+                            <div class="current-state-bar hidden" id="current-state-container">
+                                <span class="box-label">Current</span>
+                                <div class="box-content" id="current-state-label">Waiting...</div>
+                            </div>
+                            <div class="sim-notif-box hidden" id="sim-notif-box">
+                                <span class="sim-notif-content" id="sim-notif-label"></span>
+                            </div>
+                            <div class="status-box hidden" id="final-state-container">
+                                <span class="box-label">Final State</span>
+                                <div class="box-content" id="final-state-label"></div>
+                            </div>
+                        </div>
+
+                        <canvas class="tv-static-canvas" id="tv-static-canvas"></canvas>
+
+                        <button id="btn-recenter" class="recenter-btn hidden" onclick="recenterGraph()">
+                            RECENTER
+                        </button>
+
+                        <button id="btn-toggle-tracking" class="tracking-toggle-btn hidden" onclick="toggleTracking()">
+                            TRACKING: ON
+                        </button>
+
+                        <div class="tv-title-screen hidden" id="tv-title-screen">
+                            <div class="title-screen-welcome">WELCOME TO</div>
+
+                            <img src="title_logo.png" alt="nintenDON'T" class="title-logo-img">
+
+                            <h1 class="title-card-regex" id="title-card-regex">REGEX 2</h1>
+                            <div class="title-card-alphabet" id="title-card-alphabet">Σ = {0, 1}</div>
+
+                            <div class="title-card">
+                                <div class="title-card-select-model blinking">&gt; Please select a model</div>
+                                <div class="title-card-simulate">Simulate strings</div>
+                            </div>
+                        </div>
+
+                        <div id="automata-network"></div>
+
+                        <div id="cfg-display" class="hidden"></div>
+
+
+                        <div id="static-overlay" class="static-overlay hidden"></div>
+
+                    </div>
+                </div>
+
+                <div class="tv-bottom-decor">
+                    <div class="decor-stripes-group full-width-stripes">
+                        <div class="stripe"></div>
+                        <div class="stripe"></div>
+                        <div class="stripe"></div>
+                        <div class="stripe"></div>
+                        <div class="stripe"></div>
+                    </div>
+                    <div class="console-brand-label">nindtenDON'T</div>
+                </div>
+
+            </div>
+        </div>
+        <!-- ============== RIGHT COLUMN ============== -->
+        <div class="right-column">
+
+            <!-- Cartridge area -->
+            <div class="cartridge-area">
+
+                <!-- Cartridge 1 -->
+                <div class="cartridge-wrapper" id="cartridge-wrapper-1">
+                    <div class="cartridge cartridge-orange" id="cartridge-1" data-regex="1"
+                        onclick="selectCartridge(this)">
+                        <!-- [5 lines] REGEX 1 [5 lines] -->
+                        <div class="cartridge-top">
+                            <div class="cartridge-stripes-group full-width-stripes">
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                            </div>
+                            <div class="cartridge-label">REGEX 1</div>
+                        </div>
+                        <div class="cartridge-body">
+                            <!-- PHOTO: Uncomment and set src to add image -->
+                            <img src="REGEX1.png" alt="Regex 1 Diagram" class="cartridge-photo">
+                            <!-- <div class="cartridge-photo-placeholder">[INSERT PHOTO]</div> -->
+                        </div>
+                        <div class="cartridge-notch">▼</div>
+                    </div>
+                </div>
+
+                <!-- Cartridge 2 -->
+                <div class="cartridge-wrapper" id="cartridge-wrapper-2">
+                    <div class="cartridge cartridge-mint" id="cartridge-2" data-regex="2"
+                        onclick="selectCartridge(this)">
+                        <!-- [5 lines] REGEX 2 [5 lines] -->
+                        <div class="cartridge-top">
+                            <div class="cartridge-stripes-group full-width-stripes">
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                                <div class="cart-stripe"></div>
+                            </div>
+                            <div class="cartridge-label">REGEX 2</div>
+                        </div>
+                        <div class="cartridge-body">
+                            <!-- PHOTO: Uncomment and set src to add image -->
+                            <img src="REGEX2.png" alt="Regex 2 Diagram" class="cartridge-photo">
+                            <!-- <div class="cartridge-photo-placeholder">[INSERT PHOTO]</div> -->
+                        </div>
+                        <div class="cartridge-notch">▼</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Sidebar panel — follows .md layout -->
+            <div class="sidebar-panel">
+
+                <!-- └─────────────────────────┘ slot at top -->
+                <div class="panel-slot-area">
+                    <div class="panel-top-slot"></div>
+                </div>
+
+                <!-- Models -->
+                <div class="menu-section models-section">
+                    <h3>Models</h3>
+                    <div class="button-grid triple">
+                        <button id="btn-dfa" class="btn model-btn model-dfa" onclick="selectModel(this)">DFA</button>
+                        <button id="btn-cfg" class="btn model-btn model-cfg" onclick="selectModel(this)">CFG</button>
+                        <button id="btn-pda" class="btn model-btn model-pda" onclick="selectModel(this)">PDA</button>
+                    </div>
+                </div>
+
+                <!-- ─────────────────────────── divider -->
+                <div class="panel-divider"></div>
+
+                <!-- String Simulation -->
+                <div class="menu-section simulation-section">
+                    <h3>String Simulation</h3>
+                    <div id="simulation-list">
+                        <div class="input-row">
+                            <div class="input-wrapper">
+                                <button class="delete-btn" onclick="deleteRow(this)"
+                                    title="Remove text field">✕</button>
+                                <input type="text" placeholder="Enter a string" class="string-input" disabled>
+                                <span class="status-text"></span>
+                            </div>
+                            <button class="btn validate-btn" onclick="validateRow(this)" disabled>VALIDATE</button>
+                        </div>
+                    </div>
+                    <button class="btn add-more-btn" onclick="addInputRow()" disabled>+ ADD MORE</button>
+                </div>
+
+                <!-- ╞══════════════════════════════╡ 3 full-width stripes -->
+                <div class="panel-bottom-stripes">
+                    <div class="panel-stripe"></div>
+                    <div class="panel-stripe"></div>
+                    <div class="panel-stripe"></div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <button id="btn-music" class="music-btn" title="Toggle Music">🎵</button>
+    <button id="btn-manual" class="manual-btn" title="Operating Manual">?</button>
+
+    <div id="manual-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeManual()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>OPERATING MANUAL</h2>
+                <button class="close-btn" onclick="closeManual()">✖</button>
+            </div>
+            <div class="modal-body">
+
+                <div class="manual-section">
+                    <h3>1. INSERTING CARTRIDGES</h3>
+                    <p>Click on <b>REGEX 1</b> or <b>REGEX 2</b> to slot the cartridge into the console. Click again to
+                        eject. The system must have a cartridge loaded to process strings.</p>
+                </div>
+
+                <div class="manual-section">
+                    <h3>2. SELECTING A MODEL</h3>
+                    <p>Once a cartridge is loaded, select your visualization mode:</p>
+                    <ul>
+                        <li><span class="highlight-dfa">DFA:</span> Deterministic Finite Automaton </li>
+                        <li><span class="highlight-cfg">CFG:</span> Context-Free Grammar </li>
+                        <li><span class="highlight-pda">PDA:</span> Pushdown Automaton </li>
+                    </ul>
+                </div>
+
+                <div class="manual-section">
+                    <h3>3. STRING SIMULATION</h3>
+                    <p>Type a string (no spaces) into the input row and press <b>VALIDATE</b>. The TV screen will track
+                        the string's
+                        journey. Use <b>+ ADD MORE</b> to test multiple strings.</p>
+                </div>
+
+                <div class="manual-section">
+                    <h3>4. THE REGEX DATABASES</h3>
+                    <p><b>REGEX 1:</b> (b+aa+ab) (a+b)* (bb+aba+ab)* (aaa+bbb) (a+b) (a+b+ab)*<br>
+                        <i>Alphabet: {a, b}</i>
+                    </p>
+                    <br>
+                    <p><b>REGEX 2:</b> (1+0)* (11+00+101+010) (1+0+11+00+101)* (11+00) (11+00+101)* (1+0) (1+0+11)*<br>
+                        <i>Alphabet: {0, 1}</i>
+                    </p>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <div class="decor-stripes-group full-width-stripes">
+                    <div class="stripe"></div>
+                    <div class="stripe"></div>
+                    <div class="stripe"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="bgm-audio" loop preload="auto">
+        <source src="8bit-bgm.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-insert" preload="auto">
+        <source src="cart-insert.wav" type="audio/wav">
+    </audio>
+    <audio id="sfx-eject" preload="auto">
+        <source src="cart-eject.wav" type="audio/wav">
+    </audio>
+    <audio id="sfx-btn" preload="auto">
+        <source src="button-blip.wav" type="audio/wav">
+    </audio>
+    <audio id="sfx-boot" preload="auto">
+        <source src="gameboy-boot.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-static" preload="auto">
+        <source src="tv-static.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-hover" preload="auto">
+        <source src="press-start-hover.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-type" preload="auto">
+        <source src="type1.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-accepted" preload="auto">
+        <source src="accepted.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-rejected" preload="auto">
+        <source src="rejected.mp3" type="audio/mpeg">
+    </audio>
+    <script src="script.js"></script>
+
+
+</body>
+
+</html>
