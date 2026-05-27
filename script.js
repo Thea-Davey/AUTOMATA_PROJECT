@@ -114,7 +114,7 @@ const PDA_EDGES_1 = [
     { from: 'r1', to: 'r5', label: 'b', arrows: 'to', smooth: false },
     { from: 'r1', to: 'r2', label: 'a', arrows: 'to', smooth: false },
 
-    // READ2 to READ5 bus (curved horizontally so a and b don't overlap)
+    // READ2 to READ5 bus
     { from: 'r2', to: 'r5', label: 'b', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.3 } },
     { from: 'r2', to: 'r5', label: 'a', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.8 } },
 
@@ -126,11 +126,11 @@ const PDA_EDGES_1 = [
     { from: 'r5', to: 'r6', label: 'b', arrows: 'to', smooth: false },
     { from: 'r6', to: 'r7', label: 'b', arrows: 'to', smooth: false },
 
-    // Left-side Return Loops to READ5
-    { from: 'r4', to: 'r5', label: 'b', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.4 } },
-    { from: 'r3', to: 'r5', label: 'b', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.5 } },
-    { from: 'r6', to: 'r5', label: 'a', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.4 } },
-    { from: 'r7', to: 'r5', label: 'a', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.5 } },
+    // THE FIX: Streak Tracker criss-cross loops
+    { from: 'r4', to: 'r6', label: 'b', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.25 } },
+    { from: 'r3', to: 'r6', label: 'b', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.4 } },
+    { from: 'r6', to: 'r4', label: 'a', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.25 } },
+    { from: 'r7', to: 'r4', label: 'a', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.4 } },
 
     // Right-side exit bus to READ8
     { from: 'r3', to: 'r8', label: 'a', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.4 } },
@@ -182,29 +182,27 @@ const PDA_EDGES_2 = [
     { from: 'r2', to: 'r1', label: '0', arrows: 'to', smooth: false },
     { from: 'r4', to: 'r5', label: '1', arrows: 'to', smooth: false },
 
-    // Col 2 loopbacks (adjusted roundness for longer lines)
-    { from: 'r1', to: 'r3', label: '0', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.4 } },
-    { from: 'r5', to: 'r3', label: '1', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.4 } },
-
-    // Col 2 to Col 3
+    // Col 2 to Col 3 
     { from: 'r2', to: 'r7', label: '1', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.1 } },
     { from: 'r1', to: 'r7', label: '1', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.2 } },
     { from: 'r4', to: 'r7', label: '0', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.1 } },
     { from: 'r5', to: 'r7', label: '0', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.2 } },
+    
+    { from: 'r1', to: 'r7', label: '0', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.3 } },
+    { from: 'r5', to: 'r7', label: '1', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.3 } },
 
-    // Col 3 internal
+    // Col 3 internal (Hunting for 11 or 00)
     { from: 'r7', to: 'r6', label: '1', arrows: 'to', smooth: false },
     { from: 'r7', to: 'r8', label: '0', arrows: 'to', smooth: false },
 
-    // Col 3 loopbacks
-    { from: 'r6', to: 'r7', label: '0', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.4 } },
-    { from: 'r8', to: 'r7', label: '1', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.4 } },
+    { from: 'r6', to: 'r8', label: '0', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.3 } },
+    { from: 'r8', to: 'r6', label: '1', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.3 } },
 
-    // Col 3 to Col 4
+    // Col 3 to Col 4 
     { from: 'r6', to: 'r9', label: '1', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.3 } },
     { from: 'r8', to: 'r9', label: '0', arrows: 'to', smooth: { type: 'horizontal', roundness: 0.3 } },
 
-    // Col 4 & 5
+    // Col 4 & 5 (Final validation characters)
     { from: 'r9', to: 'r10', label: '1', arrows: 'to', smooth: { type: 'curvedCCW', roundness: 0.4 } },
     { from: 'r9', to: 'r10', label: '0', arrows: 'to', smooth: { type: 'curvedCW', roundness: 0.4 } },
     { from: 'r10', to: 'r10', label: '1, 0', arrows: 'to', selfReferenceSize: 40 },
@@ -1176,24 +1174,24 @@ async function validateRow(buttonElement) {
                 // Regex 1 Rules
                 'r1': { 'a': 'r2', 'b': 'r5' },
                 'r2': { 'a': 'r5', 'b': 'r5' },
-                'r3': { 'a': 'r8', 'b': 'r5' },
-                'r4': { 'a': 'r3', 'b': 'r5' },
+                'r3': { 'a': 'r8', 'b': 'r6' }, 
+                'r4': { 'a': 'r3', 'b': 'r6' }, 
                 'r5': { 'a': 'r4', 'b': 'r6' },
-                'r6': { 'a': 'r5', 'b': 'r7' },
-                'r7': { 'a': 'r5', 'b': 'r8' },
+                'r6': { 'a': 'r4', 'b': 'r7' }, 
+                'r7': { 'a': 'r4', 'b': 'r8' }, 
                 'r8': { 'a': 'r9', 'b': 'r9' },
                 'r9': { 'a': 'r9', 'b': 'r9' }
             } : {
                 // Regex 2 Rules
-                'r1': { '0': 'r3', '1': 'r7' },
+                'r1': { '0': 'r7', '1': 'r7' }, 
                 'r2': { '0': 'r1', '1': 'r7' },
                 'r3': { '1': 'r2', '0': 'r4' },
                 'r4': { '1': 'r5', '0': 'r7' },
-                'r5': { '1': 'r3', '0': 'r7' },
-                'r6': { '0': 'r7', '1': 'r9' },
+                'r5': { '1': 'r7', '0': 'r7' }, 
+                'r6': { '0': 'r8', '1': 'r9' }, 
                 'r7': { '1': 'r6', '0': 'r8' },
-                'r8': { '1': 'r7', '0': 'r9' },
-                'r9': { '0': 'r9', '1': 'r10' },
+                'r8': { '1': 'r6', '0': 'r9' }, 
+                'r9': { '0': 'r10', '1': 'r10' },  
                 'r10': { '0': 'r10', '1': 'r10' }
             };
 
