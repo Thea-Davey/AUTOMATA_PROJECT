@@ -942,7 +942,7 @@ async function validateRow(buttonElement) {
 
             for (let i = 0; i < stringData.length; i++) {
                 const char = stringData[i];
-                currentStateLabel.textContent = formatStateLabel(currentState);
+                currentStateLabel.textContent = `${formatStateLabel(currentState)}: [${char}]`;
 
                 // 1. Highlight current node
                 nodes.update({ id: currentState, color: { background: '#73B5A8', border: '#5a9b8f' } });
@@ -987,9 +987,8 @@ async function validateRow(buttonElement) {
             }
 
             // Final Validation Check
-            currentStateLabel.textContent = currentState ? formatStateLabel(currentState) : 'Rejected';
-
             if (currentState && currentDfaLogic.accepting.includes(currentState)) {
+                currentStateLabel.textContent = "Final State reached";
                 statusText.textContent = '✔';
                 statusText.classList.add('accepted');
                 buttonElement.classList.remove('rejected');
@@ -1002,6 +1001,7 @@ async function validateRow(buttonElement) {
                     simNotifBox.classList.remove('hidden');
                 }
             } else {
+                currentStateLabel.textContent = "Did not reach Final State";
                 statusText.textContent = '✖';
                 statusText.classList.add('rejected');
                 buttonElement.classList.remove('accepted');
@@ -1190,6 +1190,17 @@ async function validateRow(buttonElement) {
             nodes.update({ id: 'start', color: { background: '#73B5A8' } });
             if (network && followTrackingEnabled) network.focus('start', { scale: 1.2, animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
             await sleep(600);
+
+            // Highlight trail from START to the first read node
+            let startEdge = edges.get({
+                filter: item => item.from === 'start' && item.to === currentState
+            });
+            if (startEdge.length > 0) {
+                edges.update({ id: startEdge[0].id, color: { color: '#73B5A8' }, width: 3 });
+                await sleep(300);
+                edges.update({ id: startEdge[0].id, color: { color: '#f97316' }, width: 2 });
+            }
+
             nodes.update({ id: 'start', color: { background: '#2D3748' } });
 
             // 2. Traverse character by character
@@ -1202,7 +1213,7 @@ async function validateRow(buttonElement) {
                     break;
                 }
 
-                currentStateLabel.textContent = `Read: "${char}" -> Processing...`;
+                currentStateLabel.textContent = `${currentState.toUpperCase().replace('R', 'READ')}: [${char}]`;
 
                 // Highlight current node
                 nodes.update({ id: currentState, color: { background: '#73B5A8' } });
