@@ -610,6 +610,18 @@ function selectModel(btn) {
     const cfgDisplay = document.getElementById('cfg-display');
     const pdaDisplay = document.getElementById('pda-display');
 
+    // Always hide floating displays when changing/deactivating models
+    const stateContainer = document.getElementById('current-state-container');
+    const finalContainer = document.getElementById('final-state-container');
+    const simNotifBox = document.getElementById('sim-notif-box');
+    if (stateContainer) stateContainer.classList.add('hidden');
+    if (finalContainer) finalContainer.classList.add('hidden');
+    if (simNotifBox) simNotifBox.classList.add('hidden');
+
+    if (isSimulating) {
+        cancelSimulationFlag = true;
+    }
+
     if (wasActive) {
         if (titleScreen) titleScreen.classList.remove('hidden');
         if (networkEl) networkEl.style.opacity = '0';
@@ -619,12 +631,6 @@ function selectModel(btn) {
         if (recenterBtn) recenterBtn.classList.add('hidden');
         const toggleBtn = document.getElementById('btn-toggle-tracking');
         if (toggleBtn) toggleBtn.classList.add('hidden');
-        const stateContainer = document.getElementById('current-state-container');
-        const finalContainer = document.getElementById('final-state-container');
-        if (stateContainer) stateContainer.classList.add('hidden');
-        if (finalContainer) finalContainer.classList.add('hidden');
-        const simNotifBox = document.getElementById('sim-notif-box');
-        if (simNotifBox) simNotifBox.classList.add('hidden');
 
         document.querySelectorAll('.validate-btn, .add-more-btn, .string-input').forEach(el => el.disabled = true);
         currentModel = null;
