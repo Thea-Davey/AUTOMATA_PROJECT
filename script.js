@@ -819,6 +819,8 @@ function deleteRow(buttonElement) {
         cfgStatusTextEl.textContent = '';
         cfgStatusTextEl.className = 'cfg-status-text';
     }
+    const cfgStringDisplayEl = document.getElementById('cfg-string-display');
+    if (cfgStringDisplayEl) cfgStringDisplayEl.innerHTML = '';
 
     resetNodeStyles();
     resetAllEdges();
@@ -913,6 +915,8 @@ async function validateRow(buttonElement) {
             cfgStatusTextEl.textContent = '';
             cfgStatusTextEl.className = 'cfg-status-text';
         }
+        const cfgStringDisplayReset = document.getElementById('cfg-string-display');
+        if (cfgStringDisplayReset) cfgStringDisplayReset.innerHTML = '';
 
         // 1. Pick the exact logic map based on the active cartridge
         let currentDfaLogic = activeCartridgeId === '1' ? dfaLogic1 : dfaLogic2;
@@ -965,7 +969,7 @@ async function validateRow(buttonElement) {
                 if (edgeId) {
                     edges.update({ id: edgeId, color: { color: '#73B5A8' }, width: 3 });
                     await sleep(300); // Hold the highlighted line
-                    edges.update({ id: edgeId, color: { color: '#000' }, width: 1 }); // Turn it off
+                    edges.update({ id: edgeId, color: { color: '#f97316' }, width: 2 }); // Keep the trail
                 } else {
                     await sleep(300);
                 }
@@ -1022,148 +1026,108 @@ async function validateRow(buttonElement) {
             const rules = document.querySelectorAll('.cfg-rule');
             const cfgStatusText = document.getElementById('cfg-status-text');
 
-            // Determine variables matched sequentially (S -> A -> B -> C -> D -> E -> F -> G)
-            let traceSteps = [];
+            // ══════════════════════════════════════════════
+            // PRIORITY-BASED CFG PARSER
+            // Step 1: Find required (non-*) segments first
+            // Step 2: Fill in optional (* / Kleene) segments
+            // Returns array of { rule, start, end } or null
+            // ══════════════════════════════════════════════
+
+            let traceSegments = null; // array of { rule: index, start: charIdx, end: charIdx }
             let parsedSuccess = false;
 
             if (activeCartridgeId === '1') {
-                // Regex 1 parsing
-                const regex1Pattern = /^(b|aa|ab)([ab]*?)((?:bb|aba|ab)*?)(aaa|bbb)([ab])([ab]*)$/;
-                const match = regex1Pattern.exec(stringData);
-                if (match && stringIsValid) {
-                    traceSteps = [0, 1, 2, 3, 4, 5, 6];
-                    parsedSuccess = true;
-                } else {
-                    traceSteps.push(0); // S (Axiom)
-                    let rem = stringData;
-
-                    // Step A: (b | aa | ab)
-                    let matchA = rem.match(/^(b|aa|ab)/);
-                    if (matchA) {
-                        traceSteps.push(1);
-                        rem = rem.slice(matchA[0].length);
-
-                        // Step B: Leave D(3) + E(1) = 4 chars min
-                        let maxB = Math.max(0, rem.length - 4);
-                        let subB = rem.slice(0, maxB);
-                        let matchB = subB.match(/^[ab]*/);
-                        let lenB = matchB ? matchB[0].length : 0;
-                        traceSteps.push(2);
-                        rem = rem.slice(lenB);
-
-                        // Step C: Leave D(3) + E(1) = 4 chars min
-                        let maxC = Math.max(0, rem.length - 4);
-                        let subC = rem.slice(0, maxC);
-                        let matchC = subC.match(/^(?:bb|aba|ab)*/);
-                        let lenC = matchC ? matchC[0].length : 0;
-                        traceSteps.push(3);
-                        rem = rem.slice(lenC);
-
-                        // Step D: (aaa | bbb)
-                        let matchD = rem.match(/^(aaa|bbb)/);
-                        if (matchD) {
-                            traceSteps.push(4);
-                            rem = rem.slice(matchD[0].length);
-
-                            // Step E: (a | b)
-                            let matchE = rem.match(/^([ab])/);
-                            if (matchE) {
-                                traceSteps.push(5);
-                                rem = rem.slice(matchE[0].length);
-
-                                // Step F: remaining must match [ab]*
-                                let matchF = rem.match(/^[ab]*$/);
-                                if (matchF) {
-                                    traceSteps.push(6);
-                                    parsedSuccess = stringIsValid;
-                                }
-                            }
-                        }
-                    }
-                }
+                // REGEX 1: (b+aa+ab)(a+b)*(bb+aba+ab)*(aaa+bbb)(a+b)(a+b+ab)*
+                // Rules: S(0), A(1), B(2), C(3), D(4), E(5), F(6)
+                // Required: A(b|aa|ab), D(aaa|bbb), E(a|b)
+                // Optional: B([ab]*), C((bb|aba|ab)*), F([ab]*)
+                traceSegments = parseCFGRegex1(stringData, stringIsValid);
             } else {
-                // Regex 2 parsing
-                const regex2Pattern = /^([01]*?)(11|00|101|010)((?:0|1|11|00|101)*?)(11|00)((?:11|00|101)*?)([01])((?:0|1|11)*)$/;
-                const match = regex2Pattern.exec(stringData);
-                if (match && stringIsValid) {
-                    traceSteps = [0, 1, 2, 3, 4, 5, 6, 7];
-                    parsedSuccess = true;
-                } else {
-                    traceSteps.push(0); // S (Axiom)
-                    let rem = stringData;
-
-                    // Step A: (1 + 0)* -> Leave B(2) + D(2) + F(1) = 5 chars min
-                    let maxA = Math.max(0, rem.length - 5);
-                    let subA = rem.slice(0, maxA);
-                    let matchA = subA.match(/^[01]*/);
-                    let lenA = matchA ? matchA[0].length : 0;
-                    traceSteps.push(1);
-                    rem = rem.slice(lenA);
-
-                    // Step B: (11 | 00 | 101 | 010)
-                    let matchB = rem.match(/^(11|00|101|010)/);
-                    if (matchB) {
-                        traceSteps.push(2);
-                        rem = rem.slice(matchB[0].length);
-
-                        // Step C: Leave D(2) + F(1) = 3 chars min
-                        let maxC = Math.max(0, rem.length - 3);
-                        let subC = rem.slice(0, maxC);
-                        let matchC = subC.match(/^(?:0|1|11|00|101)*/);
-                        let lenC = matchC ? matchC[0].length : 0;
-                        traceSteps.push(3);
-                        rem = rem.slice(lenC);
-
-                        // Step D: (11 | 00)
-                        let matchD = rem.match(/^(11|00)/);
-                        if (matchD) {
-                            traceSteps.push(4);
-                            rem = rem.slice(matchD[0].length);
-
-                            // Step E: Leave F(1) = 1 char min
-                            let maxE = Math.max(0, rem.length - 1);
-                            let subE = rem.slice(0, maxE);
-                            let matchE = subE.match(/^(?:11|00|101)*/);
-                            let lenE = matchE ? matchE[0].length : 0;
-                            traceSteps.push(5);
-                            rem = rem.slice(lenE);
-
-                            // Step F: (1 | 0)
-                            let matchF = rem.match(/^([01])/);
-                            if (matchF) {
-                                traceSteps.push(6);
-                                rem = rem.slice(matchF[0].length);
-
-                                // Step G: remaining must match (0|1|11)*
-                                let matchG = rem.match(/^[01]*$/);
-                                if (matchG) {
-                                    traceSteps.push(7);
-                                    parsedSuccess = stringIsValid;
-                                }
-                            }
-                        }
-                    }
-                }
+                // REGEX 2: (1+0)*(11+00+101+010)(1+0+11+00+101)*(11+00)(11+00+101)*(1+0)(1+0+11)*
+                // Rules: S(0), A(1), B(2), C(3), D(4), E(5), F(6), G(7)
+                // Required: B(11|00|101|010), D(11|00), F(0|1)
+                // Optional: A([01]*), C([01]*), E((11|00|101)*), G([01]*)
+                traceSegments = parseCFGRegex2(stringData, stringIsValid);
             }
 
-            // --- Run sequential visual tracing based on matches found ---
-            for (let s = 0; s < traceSteps.length; s++) {
-                const ruleIdx = traceSteps[s];
+            if (traceSegments) parsedSuccess = stringIsValid;
 
-                // Remove highlight from all, then apply to current rule
-                rules.forEach(r => r.classList.remove('cfg-highlight'));
-                if (rules[ruleIdx]) {
-                    rules[ruleIdx].classList.add('cfg-highlight');
+            // ── Fallback for rejected strings: partial greedy parse ──
+            if (!traceSegments) {
+                traceSegments = activeCartridgeId === '1'
+                    ? partialParseCFG1(stringData)
+                    : partialParseCFG2(stringData);
+            }
+
+            // ── Run sequential visual tracing ──
+            for (let s = 0; s < traceSegments.length; s++) {
+                const seg = traceSegments[s];
+                const matchedStr = stringData.slice(seg.start, seg.end);
+
+                // Highlight the production rule (mint)
+                rules.forEach(r => {
+                    r.classList.remove('cfg-highlight');
+                    const rhs = r.querySelectorAll('span')[2];
+                    if (rhs && rhs.dataset.origHtml) {
+                        rhs.innerHTML = rhs.dataset.origHtml; // restore original
+                    }
+                });
+
+                if (rules[seg.rule]) {
+                    const r = rules[seg.rule];
+                    r.classList.add('cfg-highlight');
+
+                    if (seg.rule > 0) {
+                        const rhs = r.querySelectorAll('span')[2];
+                        if (rhs) {
+                            if (!rhs.dataset.origHtml) rhs.dataset.origHtml = rhs.innerHTML;
+                            let html = rhs.dataset.origHtml;
+
+                            if (seg.start === seg.end) {
+                                // Empty match! Highlight lambda if present
+                                if (html.includes('&lambda;')) {
+                                    html = html.replace('&lambda;', '<span class="cfg-char-active">&lambda;</span>');
+                                } else {
+                                    html = html + ` <span class="cfg-char-active" style="margin-left: 8px;">[&lambda;]</span>`;
+                                }
+                            } else {
+                                // Try to find the exact matched string as a standalone option
+                                const parts = html.split(' | ');
+                                let exactMatchFound = false;
+                                for (let i = 0; i < parts.length; i++) {
+                                    if (parts[i] === matchedStr) {
+                                        parts[i] = `<span class="cfg-char-active">${parts[i]}</span>`;
+                                        exactMatchFound = true;
+                                        break;
+                                    }
+                                }
+
+                                if (exactMatchFound) {
+                                    html = parts.join(' | ');
+                                } else {
+                                    // It's a Kleene closure or compound match. Just show what it matched at the end!
+                                    html = html + ` <span class="cfg-char-active" style="margin-left: 8px;">[${matchedStr}]</span>`;
+                                }
+                            }
+                            rhs.innerHTML = html;
+                        }
+                    }
                 }
 
                 await sleep(850);
             }
 
-            // Final flash off
-            rules.forEach(r => r.classList.remove('cfg-highlight'));
+            // Final flash off rules and clear highlights
+            rules.forEach(r => {
+                r.classList.remove('cfg-highlight');
+                const rhs = r.querySelectorAll('span')[2];
+                if (rhs && rhs.dataset.origHtml) {
+                    rhs.innerHTML = rhs.dataset.origHtml; // restore original
+                }
+            });
             await sleep(200);
 
-            // --- Result Typing Sequence ---
+            // ── Result Typing Sequence ──
             let resultText = stringIsValid ? "STRING ACCEPTED" : "STRING REJECTED";
             let resultClass = stringIsValid ? "accepted" : "rejected";
 
@@ -1260,7 +1224,7 @@ async function validateRow(buttonElement) {
                 if (edgeId) {
                     edges.update({ id: edgeId, color: { color: '#73B5A8' }, width: 3 });
                     await sleep(300);
-                    edges.update({ id: edgeId, color: { color: '#000' }, width: 1 });
+                    edges.update({ id: edgeId, color: { color: '#f97316' }, width: 2 }); // Keep the trail
                 } else {
                     await sleep(300);
                 }
@@ -1288,7 +1252,7 @@ async function validateRow(buttonElement) {
                 if (deltaEdge.length > 0) {
                     edges.update({ id: deltaEdge[0].id, color: { color: '#73B5A8' }, width: 3 });
                     await sleep(300);
-                    edges.update({ id: deltaEdge[0].id, color: { color: '#000' }, width: 1 });
+                    edges.update({ id: deltaEdge[0].id, color: { color: '#f97316' }, width: 2 }); // Keep the trail
                 }
 
                 nodes.update({ id: validEndState, color: { background: '#2D3748' } });
@@ -1338,6 +1302,11 @@ async function validateRow(buttonElement) {
         buttonElement.classList.remove('simulating-state');
         buttonElement.classList.add('done-state');
 
+        // Automatically recenter after tracing is complete
+        if (currentModel === 'dfa' || currentModel === 'pda') {
+            recenterGraph();
+        }
+
     } catch (e) {
         if (e.message === 'CANCEL_SIMULATION') {
             buttonElement.classList.remove('simulating-state');
@@ -1353,6 +1322,8 @@ async function validateRow(buttonElement) {
                 cfgStatusTextEl.textContent = '';
                 cfgStatusTextEl.className = 'cfg-status-text';
             }
+            const cfgStringDisplayEl = document.getElementById('cfg-string-display');
+            if (cfgStringDisplayEl) cfgStringDisplayEl.innerHTML = '';
         } else {
             console.error(e);
         }
@@ -1360,6 +1331,260 @@ async function validateRow(buttonElement) {
         cancelSimulationFlag = false;
         isSimulating = false;
     }
+}
+
+// ============================================================
+// 7b. CFG PRIORITY-BASED PARSERS
+// ============================================================
+
+/**
+ * REGEX 1: (b+aa+ab)(a+b)*(bb+aba+ab)*(aaa+bbb)(a+b)(a+b+ab)*
+ * Rules: S(0), A(1), B(2), C(3), D(4), E(5), F(6)
+ * Required: A(b|aa|ab at start), D(aaa|bbb), E(a|b after D)
+ * Optional: B([ab]*), C((bb|aba|ab)*), F([ab]*)
+ *
+ * Strategy: Find required segments first (D, A, E), then fill in optionals.
+ */
+function parseCFGRegex1(str, isValid) {
+    if (!isValid) return null;
+    if (!/^[ab]+$/.test(str)) return null;
+
+    const len = str.length;
+
+    // Step 1: Try each A match at position 0 (longest first for better matching)
+    const aOptions = [];
+    if (str.startsWith('ab')) aOptions.push('ab');
+    if (str.startsWith('aa')) aOptions.push('aa');
+    if (str.startsWith('b')) aOptions.push('b');
+    // Deduplicate
+    const aUnique = [...new Set(aOptions)];
+
+    for (const aMatch of aUnique) {
+        const aEnd = aMatch.length;
+
+        // Step 2: Scan for D (aaa|bbb) — requires E(1) after it
+        for (let dStart = aEnd; dStart <= len - 4; dStart++) {
+            const dSub = str.slice(dStart, dStart + 3);
+            if (dSub !== 'aaa' && dSub !== 'bbb') continue;
+
+            // Step 3: E is single char right after D
+            const eStart = dStart + 3;
+            const eChar = str[eStart];
+            if (eChar !== 'a' && eChar !== 'b') continue;
+
+            // Step 4: F is everything after E — always valid [ab]*
+            const fStart = eStart + 1;
+
+            // Step 5: Middle between A and D → split into B then C
+            const middle = str.slice(aEnd, dStart);
+
+            // Try all split points for B/C (greedy B: start split from middle.length down to 0)
+            for (let split = middle.length; split >= 0; split--) {
+                const cStr = middle.slice(split);
+
+                // C must match (bb|aba|ab)*
+                if (!/^(?:bb|aba|ab)*$/.test(cStr)) continue;
+
+                // Found a valid decomposition!
+                return [
+                    { rule: 0, start: 0, end: len },           // S → ABCDEF
+                    { rule: 1, start: 0, end: aEnd },           // A
+                    { rule: 2, start: aEnd, end: aEnd + split }, // B
+                    { rule: 3, start: aEnd + split, end: dStart }, // C
+                    { rule: 4, start: dStart, end: dStart + 3 }, // D
+                    { rule: 5, start: eStart, end: fStart },     // E
+                    { rule: 6, start: fStart, end: len }         // F
+                ];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * REGEX 2: (1+0)*(11+00+101+010)(1+0+11+00+101)*(11+00)(11+00+101)*(1+0)(1+0+11)*
+ * Rules: S(0), A(1), B(2), C(3), D(4), E(5), F(6), G(7)
+ * Required: B(11|00|101|010), D(11|00), F(0|1)
+ * Optional: A([01]*), C([01]*), E((11|00|101)*), G([01]*)
+ *
+ * Strategy: Find required segments first (B, D, F), then fill in optionals.
+ */
+function parseCFGRegex2(str, isValid) {
+    if (!isValid) return null;
+    if (!/^[01]+$/.test(str)) return null;
+
+    const len = str.length;
+    const bOptions = ['101', '010', '11', '00'];
+    const dOptions = ['11', '00'];
+
+    // Step 1: Try all possible B positions (required) — backwards to make A greedy
+    for (let bStart = len; bStart >= 0; bStart--) {
+        for (const bMatch of bOptions) {
+            const bEnd = bStart + bMatch.length;
+            if (bEnd > len) continue;
+            if (str.slice(bStart, bEnd) !== bMatch) continue;
+
+            // A = str[0..bStart) — always valid [01]*
+
+            // Step 2: Try all possible D positions after B (required) — backwards to make C greedy
+            for (let dStart = len - 2; dStart >= bEnd; dStart--) {
+                for (const dMatch of dOptions) {
+                    const dEnd = dStart + dMatch.length;
+                    if (dEnd > len) continue;
+                    if (str.slice(dStart, dEnd) !== dMatch) continue;
+
+                    // C = str[bEnd..dStart) — always valid [01]*
+
+                    // Step 3: Try all possible F positions after D (required) — backwards to make E greedy
+                    for (let fPos = len - 1; fPos >= dEnd; fPos--) {
+                        const fChar = str[fPos];
+                        if (fChar !== '0' && fChar !== '1') continue;
+
+                        // E = str[dEnd..fPos) — must match (11|00|101)*
+                        const eStr = str.slice(dEnd, fPos);
+                        if (!/^(?:11|00|101)*$/.test(eStr)) continue;
+
+                        // G = str[fPos+1..end) — always valid [01]*
+
+                        return [
+                            { rule: 0, start: 0, end: len },           // S
+                            { rule: 1, start: 0, end: bStart },        // A
+                            { rule: 2, start: bStart, end: bEnd },     // B
+                            { rule: 3, start: bEnd, end: dStart },     // C
+                            { rule: 4, start: dStart, end: dEnd },     // D
+                            { rule: 5, start: dEnd, end: fPos },       // E
+                            { rule: 6, start: fPos, end: fPos + 1 },   // F
+                            { rule: 7, start: fPos + 1, end: len }     // G
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Partial parser for REGEX 1 (rejected strings) — parse as far as possible.
+ */
+function partialParseCFG1(str) {
+    const segments = [{ rule: 0, start: 0, end: str.length }]; // S always
+    let pos = 0;
+
+    // A: (b|aa|ab) at start
+    let aMatch = str.match(/^(b|aa|ab)/);
+    if (!aMatch) return segments;
+    segments.push({ rule: 1, start: 0, end: aMatch[0].length });
+    pos = aMatch[0].length;
+
+    if (pos >= str.length) return segments;
+
+    // Try to find D in the remainder to determine B and C boundaries
+    let foundD = false;
+    for (let dStart = pos; dStart <= str.length - 3; dStart++) {
+        const dSub = str.slice(dStart, dStart + 3);
+        if (dSub === 'aaa' || dSub === 'bbb') {
+            // B = between A and potential C/D split
+            const middle = str.slice(pos, dStart);
+            // Try to split middle into B then C
+            for (let split = 0; split <= middle.length; split++) {
+                const cStr = middle.slice(split);
+                if (/^(?:bb|aba|ab)*$/.test(cStr)) {
+                    if (split > 0) segments.push({ rule: 2, start: pos, end: pos + split });
+                    if (cStr.length > 0) segments.push({ rule: 3, start: pos + split, end: dStart });
+                    segments.push({ rule: 4, start: dStart, end: dStart + 3 });
+
+                    // E
+                    if (dStart + 3 < str.length) {
+                        segments.push({ rule: 5, start: dStart + 3, end: dStart + 4 });
+                        // F
+                        if (dStart + 4 < str.length) {
+                            segments.push({ rule: 6, start: dStart + 4, end: str.length });
+                        }
+                    }
+                    foundD = true;
+                    break;
+                }
+            }
+            if (foundD) break;
+        }
+    }
+
+    if (!foundD) {
+        // Couldn't find D — just mark B as consuming the rest
+        segments.push({ rule: 2, start: pos, end: str.length });
+    }
+
+    return segments;
+}
+
+/**
+ * Partial parser for REGEX 2 (rejected strings) — parse as far as possible.
+ */
+function partialParseCFG2(str) {
+    const segments = [{ rule: 0, start: 0, end: str.length }]; // S always
+    let pos = 0;
+
+    // A: [01]* — consume up to where we might find B
+    // Try to find B first
+    const bOptions = ['101', '010', '11', '00'];
+    let foundB = false;
+
+    for (let bStart = 0; bStart < str.length; bStart++) {
+        for (const bMatch of bOptions) {
+            if (bStart + bMatch.length > str.length) continue;
+            if (str.slice(bStart, bStart + bMatch.length) !== bMatch) continue;
+
+            // A = [0..bStart)
+            if (bStart > 0) segments.push({ rule: 1, start: 0, end: bStart });
+            segments.push({ rule: 2, start: bStart, end: bStart + bMatch.length });
+            pos = bStart + bMatch.length;
+            foundB = true;
+
+            // Try to find D
+            const dOptions = ['11', '00'];
+            let foundD = false;
+            for (let dStart = pos; dStart <= str.length - 2; dStart++) {
+                for (const dMatch of dOptions) {
+                    if (dStart + dMatch.length > str.length) continue;
+                    if (str.slice(dStart, dStart + dMatch.length) !== dMatch) continue;
+
+                    if (dStart > pos) segments.push({ rule: 3, start: pos, end: dStart });
+                    segments.push({ rule: 4, start: dStart, end: dStart + dMatch.length });
+
+                    const afterD = dStart + dMatch.length;
+
+                    // Try to find F
+                    for (let fPos = afterD; fPos < str.length; fPos++) {
+                        const eStr = str.slice(afterD, fPos);
+                        if (/^(?:11|00|101)*$/.test(eStr)) {
+                            if (eStr.length > 0) segments.push({ rule: 5, start: afterD, end: fPos });
+                            segments.push({ rule: 6, start: fPos, end: fPos + 1 });
+                            if (fPos + 1 < str.length) {
+                                segments.push({ rule: 7, start: fPos + 1, end: str.length });
+                            }
+                            foundD = true;
+                            break;
+                        }
+                    }
+                    if (foundD) break;
+                }
+                if (foundD) break;
+            }
+
+            if (!foundD && pos < str.length) {
+                segments.push({ rule: 3, start: pos, end: str.length });
+            }
+            break;
+        }
+        if (foundB) break;
+    }
+
+    if (!foundB) {
+        segments.push({ rule: 1, start: 0, end: str.length });
+    }
+
+    return segments;
 }
 
 // ============================================================
@@ -1489,6 +1714,8 @@ document.addEventListener('input', function (e) {
                 cfgStatusTextEl.textContent = '';
                 cfgStatusTextEl.className = 'cfg-status-text';
             }
+            const cfgStringDisplayEl = document.getElementById('cfg-string-display');
+            if (cfgStringDisplayEl) cfgStringDisplayEl.innerHTML = '';
 
             resetNodeStyles();
             resetAllEdges();
